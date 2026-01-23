@@ -6,30 +6,34 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.moto.models.DriverDocument;
+import org.moto.models.Position;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
 import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
-import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
-import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
 
-
-public class LambdaHandler implements RequestHandler<APIGatewayProxyRequestEvent , APIGatewayProxyResponseEvent> {
+public class LambdaHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
 
     private static final ObjectMapper mapper = new ObjectMapper();
-    public static final String TABLE_NAME = "Drivers";
+    public static final String TABLE_NAME = "DriversPositions";
     public static final Region REGION = Region.US_EAST_1;
     public static final DynamoDbClient dynamoDbClient = DynamoDbClient.builder().region(REGION).build();
+    public static final DynamoDbEnhancedClient enhancedClient = DynamoDbEnhancedClient.builder()
+            .dynamoDbClient(dynamoDbClient).build();
+    public static final DynamoDbTable<Position> positionTable = enhancedClient.table(TABLE_NAME,
+            TableSchema.fromBean(Position.class));
 
+    /**
+     * Handles the position request from API Gateway
+     * 
+     * @param reqBody The request body that contains the position data
+     * @param context The context of the request
+     * @return The response from the request
+     */
     @Override
     public APIGatewayProxyResponseEvent handleRequest(APIGatewayProxyRequestEvent reqBody, Context context) {
         APIGatewayProxyResponseEvent response = new APIGatewayProxyResponseEvent();
@@ -42,40 +46,17 @@ public class LambdaHandler implements RequestHandler<APIGatewayProxyRequestEvent
             jsonBody = body;
         }
         try {
-            DriverDocument driverDocument = mapper.readValue(jsonBody, DriverDocument.class);
-
-            Map<String, AttributeValue> key = new HashMap<>();
-            key.put("driverID", AttributeValue.builder().s(driverDocument.getDriverID()).build());
-
-            AttributeValue newPos = AttributeValue.builder().m(Map.of(
-                            "latitude", AttributeValue.builder().n(driverDocument.getPositions().get(0).getLatitude().toString()).build(),
-                            "longitude", AttributeValue.builder().n(driverDocument.getPositions().get(0).getLongitude().toString()).build()
-                    ))
-                    .build();
-            AttributeValue emptyList = AttributeValue.builder().m(Collections.emptyMap()).build();
-            Map<String, AttributeValue> eav = new HashMap<>();
-            eav.put(":newPos", AttributeValue.builder().l(newPos).build());
-
-            UpdateItemRequest req = UpdateItemRequest.builder()
-                    .tableName(TABLE_NAME)
-                    .key(key)
-                    .updateExpression("SET positions = list_append(if_not_exists(positions, :emptyList), :newPos)")
-                    .expressionAttributeValues(Map.of(
-                            ":emptyList", AttributeValue.builder().l(emptyList).build(),
-                            ":newPos", AttributeValue.builder().l(newPos).build()
-                    ))
-                    .build();
-
-            dynamoDbClient.updateItem(req);
-
-            context.getLogger().log(String.format("Driver position updated with ID: %s", driverDocument.getDriverID()));
+            Position position = mapper.readValue(jsonBody, Position.class);
+            positionTable.putItem(position);
+            context.getLogger().log(String.format("DriverID: %s position updated with timestamp: %s",
+                    position.getDriverID(), position.getTimestamp()));
         } catch (JsonProcessingException e) {
             context.getLogger().log(String.format("JSON exception while processing request: %s", e.getMessage()));
             response.setStatusCode(500);
             return response;
         }
         response.setStatusCode(200);
-        response.setBody("Position updated");
+        response.setBody("Position updated successfully");
         return response;
     }
 }
