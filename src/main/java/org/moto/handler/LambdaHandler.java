@@ -6,7 +6,7 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.moto.models.Position;
+import org.moto.models.DriverPosition;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
 import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
@@ -24,8 +24,8 @@ public class LambdaHandler implements RequestHandler<APIGatewayProxyRequestEvent
     public static final DynamoDbClient dynamoDbClient = DynamoDbClient.builder().region(REGION).build();
     public static final DynamoDbEnhancedClient enhancedClient = DynamoDbEnhancedClient.builder()
             .dynamoDbClient(dynamoDbClient).build();
-    public static final DynamoDbTable<Position> positionTable = enhancedClient.table(TABLE_NAME,
-            TableSchema.fromBean(Position.class));
+    public static final DynamoDbTable<DriverPosition> positionTable = enhancedClient.table(TABLE_NAME,
+            TableSchema.fromBean(DriverPosition.class));
 
     /**
      * Handles the position request from API Gateway
@@ -46,7 +46,7 @@ public class LambdaHandler implements RequestHandler<APIGatewayProxyRequestEvent
             jsonBody = body;
         }
         try {
-            Position position = mapper.readValue(jsonBody, Position.class);
+            DriverPosition position = mapper.readValue(jsonBody, DriverPosition.class);
             positionTable.putItem(position);
             context.getLogger().log(String.format("DriverID: %s position updated with timestamp: %s",
                     position.getDriverID(), position.getTimestamp()));

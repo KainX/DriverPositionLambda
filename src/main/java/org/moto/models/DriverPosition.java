@@ -5,16 +5,16 @@ import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbParti
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbSortKey;
 
 @DynamoDbBean
-public class Position {
+public class DriverPosition {
     private String driverID;
     private String timestamp;
     private Double latitude;
     private Double longitude;
 
-    public Position() {
+    public DriverPosition() {
     }
 
-    public Position(String driverID, String timestamp, Double latitude, Double longitude) {
+    public DriverPosition(String driverID, String timestamp, Double latitude, Double longitude) {
         this.driverID = driverID;
         this.timestamp = timestamp;
         this.latitude = latitude;
